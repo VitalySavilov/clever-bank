@@ -1,0 +1,4 @@
+db:
+  url: jdbc:postgresql://localhost:5432/clever_bank
+  username: postgres
+  password: postgres
