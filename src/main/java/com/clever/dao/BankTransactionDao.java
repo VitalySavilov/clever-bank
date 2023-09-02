@@ -9,4 +9,6 @@ public interface BankTransactionDao {
     BankTransaction saveOrUpdate(BankTransaction transaction);
 
     BankTransaction saveOrUpdate(BankTransaction transaction, Connection connection);
+
+    void saveTransfer(Long transactionId, Long enemyAccountId, Connection connection);
 }

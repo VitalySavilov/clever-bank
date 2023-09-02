@@ -3,6 +3,7 @@ package com.clever.entity;
 public enum BankTransactionType {
     REPLENISH("Пополнение счета"),
     WITHDRAW("Снятие денег со счета"),
+    TRANSFER("Перевод денег"),
     INTEREST("Начисление процентов");
     private final String value;
 

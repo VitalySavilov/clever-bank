@@ -39,6 +39,18 @@ public class AccountDaoImpl implements AccountDao {
             FROM account
             WHERE id = ?;
             """;
+    private static final String FIND_BY_ACCOUNT_NUMBER_SQL = """
+            SELECT id,
+                account_number,
+                card_number,
+                open_date,
+                balance,
+                currency,
+                bank_id,
+                app_user_id
+            FROM account
+            WHERE account_number = ? AND bank_id = ?;
+            """;
 
     private AccountDaoImpl() {
     }
@@ -88,6 +100,22 @@ public class AccountDaoImpl implements AccountDao {
         } catch (SQLException e) {
             throw new AccountException(
                     String.format("Cannot find account with id = %s", id), e);
+        }
+        return result;
+    }
+
+    public Optional<Account> findByAccountNumber(Long accountNumber, Long bankId) {
+        Optional<Account> result;
+        try {
+            @Cleanup Connection connection = ConnectionManager.getConnection();
+            @Cleanup PreparedStatement preparedStatement = connection.prepareStatement(FIND_BY_ACCOUNT_NUMBER_SQL);
+            preparedStatement.setLong(1, accountNumber);
+            preparedStatement.setLong(2, bankId);
+            @Cleanup ResultSet resultSet = preparedStatement.executeQuery();
+            result = buildAccount(resultSet);
+        } catch (SQLException e) {
+            throw new AccountException(
+                    String.format("Cannot find account number = %s", accountNumber), e);
         }
         return result;
     }

@@ -2,10 +2,8 @@ package com.clever.dao;
 
 import com.clever.entity.BankTransaction;
 import com.clever.exception.BankTransactionException;
-import com.clever.exception.DataBaseConnectionException;
 import com.clever.util.ConnectionManager;
 import lombok.Cleanup;
-import lombok.SneakyThrows;
 
 import java.sql.*;
 
@@ -24,11 +22,16 @@ public class BankTransactionDaoImpl implements BankTransactionDao {
             WHERE id = ?;
             """;
 
+    private static final String SAVE_TRANSFER_SQL = """
+            INSERT INTO transfer (transaction_id, enemy_account_id) 
+            VALUES (?, ?);
+            """;
+
     private BankTransactionDaoImpl() {
     }
 
     public BankTransaction saveOrUpdate(BankTransaction transaction) {
-        try{
+        try {
             @Cleanup Connection connection = ConnectionManager.getConnection();
             return saveOrUpdate(transaction, connection);
         } catch (Exception e) {
@@ -53,6 +56,17 @@ public class BankTransactionDaoImpl implements BankTransactionDao {
             throw new BankTransactionException("Cannot save or update bank transaction", e);
         }
         return transaction;
+    }
+
+    public void saveTransfer(Long transactionId, Long enemyAccountId, Connection connection) {
+        try {
+            @Cleanup PreparedStatement preparedStatement = connection.prepareStatement(SAVE_TRANSFER_SQL);
+            preparedStatement.setLong(1, transactionId);
+            preparedStatement.setLong(2, enemyAccountId);
+            preparedStatement.executeUpdate();
+        } catch (SQLException e) {
+            throw new BankTransactionException("Cannot save or update bank transaction", e);
+        }
     }
 
     public static BankTransactionDaoImpl getInstance() {

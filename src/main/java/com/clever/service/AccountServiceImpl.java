@@ -1,14 +1,11 @@
 package com.clever.service;
 
-import com.clever.dao.AccountDao;
-import com.clever.dao.AccountDaoImpl;
-import com.clever.dao.BankTransactionDao;
-import com.clever.dao.BankTransactionDaoImpl;
+import com.clever.dao.*;
 import com.clever.entity.Account;
+import com.clever.entity.Bank;
 import com.clever.entity.BankTransaction;
 import com.clever.entity.BankTransactionType;
-import com.clever.exception.AccountException;
-import com.clever.exception.NotSufficientFundsException;
+import com.clever.exception.*;
 import com.clever.util.ConnectionManager;
 
 import java.math.BigDecimal;
@@ -20,6 +17,7 @@ import java.time.LocalDateTime;
 public class AccountServiceImpl implements AccountService {
     private final AccountDao accountDao = AccountDaoImpl.getInstance();
     private final BankTransactionDao bankTransactionDao = BankTransactionDaoImpl.getInstance();
+    private final BankDao bankDaoImpl = BankDaoImpl.getInstance();
     private final CheckService checkService = CheckServiceImpl.getInstance();
     private static final AccountServiceImpl INSTANCE = new AccountServiceImpl();
 
@@ -27,7 +25,9 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public Account replenish(Account account, BigDecimal amount) {
+    public Account replenish(Long fromAccountNumber, String bankName, BigDecimal amount) {
+        Bank bank = findBank(bankName);
+        Account account = findAccount(fromAccountNumber, bank.getId());
         account.setBalance(account.getBalance().add(amount));
         try {
             BankTransaction bankTransaction = updateInTransaction(
@@ -42,22 +42,60 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public Account withdraw(Account account, BigDecimal amount) {
-        if (checkBalance(account.getBalance(), amount)) {
-            try {
-                account.setBalance(account.getBalance().subtract(amount));
-                BankTransaction bankTransaction = updateInTransaction(
-                        account,
-                        amount,
-                        BankTransactionType.WITHDRAW);
-                checkService.printCheck(bankTransaction);
-            } catch (SQLException e) {
-                throw new AccountException("Cannot withdraw from account", e);
-            }
-        } else {
-            throw new NotSufficientFundsException("Insufficient funds");
+    public Account withdraw(Long fromAccountNumber, String bankName, BigDecimal amount) {
+        Bank bank = findBank(bankName);
+        Account account = findAccount(fromAccountNumber, bank.getId());
+        checkBalance(account.getBalance(), amount);
+        try {
+            account.setBalance(account.getBalance().subtract(amount));
+            BankTransaction bankTransaction = updateInTransaction(
+                    account,
+                    amount.negate(),
+                    BankTransactionType.WITHDRAW);
+            checkService.printCheck(bankTransaction);
+        } catch (SQLException e) {
+            throw new AccountException("Cannot withdraw from account", e);
         }
         return account;
+    }
+
+    public void transferMoney(Long fromAccountNumber, Long toAccountNumber,
+                              String fromBankName, String toBankName, BigDecimal amount) {
+        Bank fromBank = findBank(fromBankName);
+        Bank toBank = findBank(toBankName);
+        Account fromAccount = findAccount(fromAccountNumber, fromBank.getId());
+        Account toAccount = findAccount(toAccountNumber, toBank.getId());
+        checkCurrencyMatch(fromAccount.getCurrency(), toAccount.getCurrency());
+        checkBalance(fromAccount.getBalance(), amount);
+        fromAccount.setBalance(fromAccount.getBalance().subtract(amount));
+        toAccount.setBalance(toAccount.getBalance().add(amount));
+        try {
+            transferInTransaction(fromAccount, toAccount, amount);
+        } catch (SQLException e) {
+            throw new BankTransactionException(
+                    String.format("Cannot transfer money from account %s to account %s",
+                            fromAccountNumber, toAccountNumber), e);
+        }
+    }
+
+    private Bank findBank(String bankName) {
+        return bankDaoImpl.findByName(bankName)
+                .orElseThrow(() -> new BankNotFoundException(
+                        String.format("Cannot found bank %s", bankName)));
+    }
+
+    private Account findAccount(Long accountNumber, Long bankId) {
+        return accountDao.findByAccountNumber(accountNumber, bankId)
+                .orElseThrow(() -> new AccountException(
+                        String.format("Cannot found account number %s", accountNumber)));
+    }
+
+    private void checkCurrencyMatch(String fromAccountCurrency, String toAccountCurrency) {
+        if (!fromAccountCurrency.equals(toAccountCurrency)) {
+            throw new CurrencyNotMatchException(String.format("Sender account currency %s " +
+                            "does not match to recipient account currency %s",
+                    fromAccountCurrency, toAccountCurrency));
+        }
     }
 
     private BankTransaction updateInTransaction(Account account,
@@ -87,6 +125,39 @@ public class AccountServiceImpl implements AccountService {
         return bankTransaction;
     }
 
+    private void transferInTransaction(Account fromAccount, Account toAccount, BigDecimal amount) throws SQLException {
+        Connection connection = null;
+        BankTransaction bankTransactionFrom;
+        BankTransaction bankTransactionTo;
+        try {
+            connection = ConnectionManager.getConnection();
+            connection.setAutoCommit(false);
+            accountDao.saveOrUpdate(fromAccount, connection);
+            bankTransactionFrom = bankTransactionDao.saveOrUpdate(
+                    buildBankTransaction(amount.negate(), fromAccount, BankTransactionType.TRANSFER),
+                    connection);
+            bankTransactionDao.saveTransfer(bankTransactionFrom.getId(), toAccount.getId(), connection);
+            accountDao.saveOrUpdate(toAccount, connection);
+            bankTransactionTo = bankTransactionDao.saveOrUpdate(
+                    buildBankTransaction(amount, toAccount, BankTransactionType.TRANSFER),
+                    connection);
+            bankTransactionDao.saveTransfer(bankTransactionTo.getId(), fromAccount.getId(), connection);
+            connection.commit();
+            connection.setAutoCommit(true);
+        } catch (Exception e) {
+            if (connection != null) {
+                connection.rollback();
+            }
+            throw e;
+        } finally {
+            if (connection != null) {
+                connection.close();
+            }
+        }
+        checkService.printCheck(bankTransactionFrom);
+        checkService.printCheck(bankTransactionTo);
+    }
+
     private BankTransaction buildBankTransaction(BigDecimal amount, Account account, BankTransactionType type) {
         return BankTransaction.builder()
                 .amount(amount)
@@ -96,8 +167,10 @@ public class AccountServiceImpl implements AccountService {
                 .build();
     }
 
-    private boolean checkBalance(BigDecimal accountBalance, BigDecimal amount) {
-        return accountBalance.compareTo(amount) >= 0;
+    private void checkBalance(BigDecimal fromAccountBalance, BigDecimal amount) {
+        if (fromAccountBalance.compareTo(amount) < 0) {
+            throw new NotSufficientFundsException("Insufficient funds");
+        }
     }
 
     public static AccountServiceImpl getInstance() {

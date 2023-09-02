@@ -46,6 +46,20 @@ CREATE TABLE bank_transaction
 ALTER TABLE bank_transaction
     ADD CONSTRAINT FK_TRANSACTION_ON_ACCOUNT FOREIGN KEY (account_id) REFERENCES account (id);
 
+CREATE TABLE transfer
+(
+    id                    SERIAL NOT NULL,
+    transaction_id        BIGINT NOT NULL,
+    enemy_account_id            BIGINT NOT NULL,
+    CONSTRAINT pk_transfer PRIMARY KEY (id)
+);
+
+ALTER TABLE transfer
+    ADD CONSTRAINT FK_TRANSFER_ON_ACCOUNT FOREIGN KEY (enemy_account_id) REFERENCES account (id);
+
+ALTER TABLE transfer
+    ADD CONSTRAINT FK_TRANSFER_ON_TRANSACTION FOREIGN KEY (transaction_id) REFERENCES bank_transaction (id);
+
 CREATE TABLE shedlock (
     id         BIGINT NOT NULL,
     lock_until TIMESTAMP(3) NOT NULL,
