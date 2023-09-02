@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 public class AccountServiceImpl implements AccountService {
     private final AccountDao accountDao = AccountDaoImpl.getInstance();
     private final BankTransactionDao bankTransactionDao = BankTransactionDaoImpl.getInstance();
+    private final CheckService checkService = CheckServiceImpl.getInstance();
     private static final AccountServiceImpl INSTANCE = new AccountServiceImpl();
 
     private AccountServiceImpl() {
@@ -29,7 +30,11 @@ public class AccountServiceImpl implements AccountService {
     public Account replenish(Account account, BigDecimal amount) {
         account.setBalance(account.getBalance().add(amount));
         try {
-            updateInTransaction(account, amount, BankTransactionType.REPLENISH);
+            BankTransaction bankTransaction = updateInTransaction(
+                    account,
+                    amount,
+                    BankTransactionType.REPLENISH);
+            checkService.printCheck(bankTransaction);
         } catch (SQLException e) {
             throw new AccountException("Cannot replenish account", e);
         }
@@ -41,7 +46,11 @@ public class AccountServiceImpl implements AccountService {
         if (checkBalance(account.getBalance(), amount)) {
             try {
                 account.setBalance(account.getBalance().subtract(amount));
-                updateInTransaction(account, amount, BankTransactionType.WITHDRAW);
+                BankTransaction bankTransaction = updateInTransaction(
+                        account,
+                        amount,
+                        BankTransactionType.WITHDRAW);
+                checkService.printCheck(bankTransaction);
             } catch (SQLException e) {
                 throw new AccountException("Cannot withdraw from account", e);
             }
@@ -51,15 +60,16 @@ public class AccountServiceImpl implements AccountService {
         return account;
     }
 
-    private void updateInTransaction(Account account,
-                                     BigDecimal amount,
-                                     BankTransactionType type) throws SQLException {
+    private BankTransaction updateInTransaction(Account account,
+                                                BigDecimal amount,
+                                                BankTransactionType type) throws SQLException {
         Connection connection = null;
+        BankTransaction bankTransaction = null;
         try {
             connection = ConnectionManager.getConnection();
             connection.setAutoCommit(false);
             accountDao.saveOrUpdate(account, connection);
-            bankTransactionDao.saveOrUpdate(
+            bankTransaction = bankTransactionDao.saveOrUpdate(
                     buildBankTransaction(amount, account, type),
                     connection);
             connection.commit();
@@ -74,6 +84,7 @@ public class AccountServiceImpl implements AccountService {
                 connection.close();
             }
         }
+        return bankTransaction;
     }
 
     private BankTransaction buildBankTransaction(BigDecimal amount, Account account, BankTransactionType type) {

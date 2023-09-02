@@ -19,5 +19,7 @@ public class CleverRunner {
         System.out.println(account);
         account = accountService.replenish(account, BigDecimal.valueOf(1700));
         System.out.println(account);
+        System.out.println("проверка");
+
     }
 }
