@@ -1,11 +1,14 @@
 package com.clever.dao;
 
 import com.clever.entity.Account;
+import com.clever.entity.AppUser;
+import com.clever.entity.Bank;
 import com.clever.exception.AccountException;
 import com.clever.util.ConnectionManager;
 import lombok.Cleanup;
 
 import java.sql.*;
+import java.util.Optional;
 
 public class AccountDaoImpl implements AccountDao {
     private static final AccountDaoImpl INSTANCE = new AccountDaoImpl();
@@ -24,14 +27,30 @@ public class AccountDaoImpl implements AccountDao {
                 app_user_id = ?
             WHERE id = ?;
             """;
+    private static final String FIND_BY_ID_SQL = """
+            SELECT id,
+                account_number,
+                card_number,
+                open_date,
+                balance,
+                currency,
+                bank_id,
+                app_user_id
+            FROM account
+            WHERE id = ?;
+            """;
 
     private AccountDaoImpl() {
     }
 
     @Override
     public Account saveOrUpdate(Account account) {
-        @Cleanup Connection connection = ConnectionManager.getConnection();
-        return saveOrUpdate(account, connection);
+        try {
+            @Cleanup Connection connection = ConnectionManager.getConnection();
+            return saveOrUpdate(account, connection);
+        } catch (Exception e) {
+            throw new AccountException("Cannot save or update account", e);
+        }
     }
 
     @Override
@@ -55,6 +74,43 @@ public class AccountDaoImpl implements AccountDao {
             throw new AccountException("Cannot save or update account", e);
         }
         return account;
+    }
+
+    @Override
+    public Optional<Account> findById(Long id) {
+        Optional<Account> result;
+        try {
+            @Cleanup Connection connection = ConnectionManager.getConnection();
+            @Cleanup PreparedStatement preparedStatement = connection.prepareStatement(FIND_BY_ID_SQL);
+            preparedStatement.setLong(1, id);
+            @Cleanup ResultSet resultSet = preparedStatement.executeQuery();
+            result = buildAccount(resultSet);
+        } catch (SQLException e) {
+            throw new AccountException(
+                    String.format("Cannot find account with id = %s", id), e);
+        }
+        return result;
+    }
+
+    private Optional<Account> buildAccount(ResultSet resultSet) throws SQLException {
+        Account account = null;
+        if (resultSet.next()) {
+            account = Account.builder()
+                    .id(resultSet.getLong("id"))
+                    .accountNumber(resultSet.getLong("account_number"))
+                    .cardNumber(resultSet.getString("card_number"))
+                    .openDate(resultSet.getDate("open_date"))
+                    .balance(resultSet.getBigDecimal("balance"))
+                    .currency(resultSet.getString("currency"))
+                    .bank(Bank.builder()
+                            .id(resultSet.getLong("bank_id"))
+                            .build())
+                    .appUser(AppUser.builder()
+                            .id(resultSet.getLong("app_user_id"))
+                            .build())
+                    .build();
+        }
+        return Optional.ofNullable(account);
     }
 
     public static AccountDaoImpl getInstance() {

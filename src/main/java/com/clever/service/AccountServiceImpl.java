@@ -8,6 +8,7 @@ import com.clever.entity.Account;
 import com.clever.entity.BankTransaction;
 import com.clever.entity.BankTransactionType;
 import com.clever.exception.AccountException;
+import com.clever.exception.NotSufficientFundsException;
 import com.clever.util.ConnectionManager;
 
 import java.math.BigDecimal;
@@ -26,7 +27,7 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public Account replenish(Account account, BigDecimal amount) {
-        account.setBalance(account.getBalance().subtract(amount));
+        account.setBalance(account.getBalance().add(amount));
         try {
             updateInTransaction(account, amount, BankTransactionType.REPLENISH);
         } catch (SQLException e) {
@@ -37,10 +38,15 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public Account withdraw(Account account, BigDecimal amount) {
-        try {
-            updateInTransaction(account, amount, BankTransactionType.WITHDRAW);
-        } catch (SQLException e) {
-            throw new AccountException("Cannot withdraw from account", e);
+        if (checkBalance(account.getBalance(), amount)) {
+            try {
+                account.setBalance(account.getBalance().subtract(amount));
+                updateInTransaction(account, amount, BankTransactionType.WITHDRAW);
+            } catch (SQLException e) {
+                throw new AccountException("Cannot withdraw from account", e);
+            }
+        } else {
+            throw new NotSufficientFundsException("Insufficient funds");
         }
         return account;
     }
@@ -77,6 +83,10 @@ public class AccountServiceImpl implements AccountService {
                 .account(account)
                 .type(type.getValue())
                 .build();
+    }
+
+    private boolean checkBalance(BigDecimal accountBalance, BigDecimal amount) {
+        return accountBalance.compareTo(amount) >= 0;
     }
 
     public static AccountServiceImpl getInstance() {
