@@ -3,7 +3,7 @@ plugins {
 }
 
 group 'org.clever'
-version '1.0-SNAPSHOT'
+version '1.0'
 compileJava.options.encoding = 'UTF-8'
 
 tasks.withType(JavaCompile) {
