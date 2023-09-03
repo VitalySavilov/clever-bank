@@ -141,12 +141,10 @@ public class AccountServiceImpl implements AccountService {
             bankTransactionFrom = bankTransactionDao.saveOrUpdate(
                     buildBankTransaction(amount.negate(), fromAccount, BankTransactionType.TRANSFER),
                     connection);
-            bankTransactionDao.saveTransfer(bankTransactionFrom.getId(), toAccount.getId(), connection);
             accountDao.saveOrUpdate(toAccount, connection);
             bankTransactionTo = bankTransactionDao.saveOrUpdate(
                     buildBankTransaction(amount, toAccount, BankTransactionType.TRANSFER),
                     connection);
-            bankTransactionDao.saveTransfer(bankTransactionTo.getId(), fromAccount.getId(), connection);
             connection.commit();
             connection.setAutoCommit(true);
         } catch (Exception e) {
