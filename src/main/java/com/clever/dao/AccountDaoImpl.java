@@ -8,6 +8,8 @@ import com.clever.util.ConnectionManager;
 import lombok.Cleanup;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public class AccountDaoImpl implements AccountDao {
@@ -50,6 +52,10 @@ public class AccountDaoImpl implements AccountDao {
                 app_user_id
             FROM account
             WHERE account_number = ? AND bank_id = ?;
+            """;
+    private static final String FIND_ID_LIST_SQL = """
+            SELECT id
+            FROM account;     
             """;
 
     private AccountDaoImpl() {
@@ -117,6 +123,22 @@ public class AccountDaoImpl implements AccountDao {
             throw new AccountException(
                     String.format("Cannot find account number = %s", accountNumber), e);
         }
+        return result;
+    }
+
+    public List<Long> getIdList() {
+        List<Long> result = new ArrayList<>();
+        try {
+            @Cleanup Connection connection = ConnectionManager.getConnection();
+            @Cleanup PreparedStatement preparedStatement = connection.prepareStatement(FIND_ID_LIST_SQL);
+            @Cleanup ResultSet resultSet = preparedStatement.executeQuery();
+            while (resultSet.next()) {
+                result.add(resultSet.getLong("id"));
+            }
+        } catch (SQLException e) {
+            throw new AccountException("Cannot get accounts id list", e);
+        }
+
         return result;
     }
 

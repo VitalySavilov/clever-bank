@@ -1,28 +1,72 @@
 package com.clever;
 
-import com.clever.dao.AccountDao;
-import com.clever.dao.AccountDaoImpl;
-import com.clever.entity.Account;
 import com.clever.service.AccountService;
 import com.clever.service.AccountServiceImpl;
+import com.clever.service.InterestService;
+import com.clever.service.InterestServiceImpl;
 
 import java.math.BigDecimal;
+import java.util.Scanner;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class CleverRunner {
+    private static final AccountService accountService = AccountServiceImpl.getInstance();
+    private static final Scanner scanner = new Scanner(System.in);
 
     public static void main(String[] args) {
-        AccountService accountService = AccountServiceImpl.getInstance();
-        Account account;
-        account = accountService.withdraw(7694927649L, "Sber-Bank", BigDecimal.valueOf(1200));
-        System.out.println(account);
-        account = accountService.replenish(7694927649L, "Sber-Bank", BigDecimal.valueOf(1700));
-        System.out.println(account);
-        System.out.println("проверка");
+        InterestService interestService = InterestServiceImpl.getInstance();
+        ScheduledExecutorService interestChecker = Executors.newSingleThreadScheduledExecutor();
+        Runnable task = interestService::chargeInterest;
+        interestChecker.scheduleAtFixedRate(task, 0, 30, TimeUnit.SECONDS);
+        while (true) {
+            System.out.println("""
+                    Выберите операцию:
+                    1. Пополнение счета
+                    2. Снятие средств со счета
+                    3. Перевод средств
+                    4. Exit""");
+            int num = scanner.nextInt();
+            System.out.println("Your choose - " + num);
+            scanner.nextLine();
+            if (num == 1) accountService.replenish(
+                    initAccountNumber("Введите номер счета:"),
+                    initBankName("Введите название банка:"),
+                    initAmount("Введите сумму:"));
+            else if (num == 2) accountService.withdraw(
+                    initAccountNumber("Введите номер счета:"),
+                    initBankName("Введите название банка:"),
+                    initAmount("Введите сумму:"));
+            else if (num == 3) accountService.transferMoney(
+                    initAccountNumber("Введите номер счета отправителя:"),
+                    initAccountNumber("Введите номер счета получателя:"),
+                    initBankName("Введите название банка отправителя:"),
+                    initBankName("Введите название банка получателя:"),
+                    initAmount("Введите сумму:"));
+            else if (num == 4) {
+                interestChecker.shutdown();
+                return;
+            } else System.out.println("Unknown command");
+        }
+    }
 
-        accountService.transferMoney(8676786786L,
-                8299393939L,
-                "Alfa-Bank",
-                "Sber-Bank",
-                BigDecimal.valueOf(1500));
+    private static Long initAccountNumber(String message) {
+        System.out.println(message);
+        Long accountNumber = scanner.nextLong();
+        scanner.nextLine();
+        return accountNumber;
+    }
+
+    private static String initBankName(String message) {
+        System.out.println(message);
+        return scanner.nextLine();
+    }
+
+    private static BigDecimal initAmount(String message) {
+        System.out.println(message);
+        BigDecimal amount = scanner.nextBigDecimal();
+        scanner.nextLine();
+        return amount;
     }
 }

@@ -19,6 +19,12 @@ public class BankDaoImpl implements BankDao {
             FROM bank
             WHERE bank_name = ?;
             """;
+    private static final String FIND_BY_ID_SQL = """
+            SELECT id,
+                bank_name
+            FROM bank
+            WHERE id = ?;
+            """;
 
     private BankDaoImpl() {
     }
@@ -34,6 +40,21 @@ public class BankDaoImpl implements BankDao {
             result = buildBank(resultSet);
         } catch (SQLException e) {
             throw new BankNotFoundException(String.format("Cannot found bank %s", name), e);
+        }
+        return result;
+    }
+
+    @Override
+    public Optional<Bank> findById(Long id) {
+        Optional<Bank> result;
+        try {
+            @Cleanup Connection connection = ConnectionManager.getConnection();
+            @Cleanup PreparedStatement preparedStatement = connection.prepareStatement(FIND_BY_ID_SQL);
+            preparedStatement.setLong(1, id);
+            @Cleanup ResultSet resultSet = preparedStatement.executeQuery();
+            result = buildBank(resultSet);
+        } catch (SQLException e) {
+            throw new BankNotFoundException("Cannot found bank", e);
         }
         return result;
     }

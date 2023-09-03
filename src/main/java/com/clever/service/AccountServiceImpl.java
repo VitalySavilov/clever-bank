@@ -28,6 +28,7 @@ public class AccountServiceImpl implements AccountService {
     public Account replenish(Long fromAccountNumber, String bankName, BigDecimal amount) {
         Bank bank = findBank(bankName);
         Account account = findAccount(fromAccountNumber, bank.getId());
+        account.setBank(bank);
         account.setBalance(account.getBalance().add(amount));
         try {
             BankTransaction bankTransaction = updateInTransaction(
@@ -46,6 +47,7 @@ public class AccountServiceImpl implements AccountService {
         Bank bank = findBank(bankName);
         Account account = findAccount(fromAccountNumber, bank.getId());
         checkBalance(account.getBalance(), amount);
+        account.setBank(bank);
         try {
             account.setBalance(account.getBalance().subtract(amount));
             BankTransaction bankTransaction = updateInTransaction(
@@ -59,6 +61,7 @@ public class AccountServiceImpl implements AccountService {
         return account;
     }
 
+    @Override
     public void transferMoney(Long fromAccountNumber, Long toAccountNumber,
                               String fromBankName, String toBankName, BigDecimal amount) {
         Bank fromBank = findBank(fromBankName);
@@ -67,6 +70,8 @@ public class AccountServiceImpl implements AccountService {
         Account toAccount = findAccount(toAccountNumber, toBank.getId());
         checkCurrencyMatch(fromAccount.getCurrency(), toAccount.getCurrency());
         checkBalance(fromAccount.getBalance(), amount);
+        fromAccount.setBank(fromBank);
+        toAccount.setBank(toBank);
         fromAccount.setBalance(fromAccount.getBalance().subtract(amount));
         toAccount.setBalance(toAccount.getBalance().add(amount));
         try {
@@ -154,8 +159,7 @@ public class AccountServiceImpl implements AccountService {
                 connection.close();
             }
         }
-        checkService.printCheck(bankTransactionFrom);
-        checkService.printCheck(bankTransactionTo);
+        checkService.printCheck(bankTransactionFrom, bankTransactionTo);
     }
 
     private BankTransaction buildBankTransaction(BigDecimal amount, Account account, BankTransactionType type) {
