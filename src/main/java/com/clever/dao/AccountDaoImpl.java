@@ -138,7 +138,6 @@ public class AccountDaoImpl implements AccountDao {
         } catch (SQLException e) {
             throw new AccountException("Cannot get accounts id list", e);
         }
-
         return result;
     }
 

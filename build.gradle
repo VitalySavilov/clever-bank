@@ -1,18 +1,14 @@
 plugins {
     id 'java'
 }
-compileJava.options.encoding = 'UTF-8'
-tasks.withType(JavaCompile) {
-    options.encoding = 'UTF-8'
-}
-
-test {
-    systemProperty "file.encoding", "utf-8"
-    useJUnitPlatform()
-}
 
 group 'org.clever'
 version '1.0-SNAPSHOT'
+compileJava.options.encoding = 'UTF-8'
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
 
 repositories {
     mavenCentral()
@@ -21,6 +17,7 @@ repositories {
 dependencies {
     implementation group: 'org.apache.commons', name: 'commons-dbcp2', version: '2.9.0'
     implementation group: 'org.yaml', name: 'snakeyaml', version: '1.33'
+    implementation group: 'com.itextpdf', name: 'itextpdf', version: '5.5.13.3'
 
     compileOnly group: 'org.projectlombok', name: 'lombok', version: '1.18.28'
     annotationProcessor 'org.projectlombok:lombok:1.18.28'
@@ -31,5 +28,15 @@ dependencies {
 }
 
 test {
+    systemProperty "file.encoding", "utf-8"
     useJUnitPlatform()
+}
+
+jar {
+    manifest {
+        attributes 'Main-class': 'com.clever.CleverBankRunner'
+    }
+    duplicatesStrategy(DuplicatesStrategy.EXCLUDE)
+
+    from(configurations.runtimeClasspath.files.collect {zipTree(it)} )
 }

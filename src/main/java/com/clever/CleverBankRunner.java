@@ -11,7 +11,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class CleverRunner {
+public class CleverBankRunner {
     private static final AccountService accountService = AccountServiceImpl.getInstance();
     private static final Scanner scanner = new Scanner(System.in);
 
@@ -28,26 +28,40 @@ public class CleverRunner {
                     3. Перевод средств
                     4. Exit""");
             int num = scanner.nextInt();
-            System.out.println("Your choose - " + num);
             scanner.nextLine();
-            if (num == 1) accountService.replenish(
-                    initAccountNumber("Введите номер счета:"),
-                    initBankName("Введите название банка:"),
-                    initAmount("Введите сумму:"));
-            else if (num == 2) accountService.withdraw(
-                    initAccountNumber("Введите номер счета:"),
-                    initBankName("Введите название банка:"),
-                    initAmount("Введите сумму:"));
-            else if (num == 3) accountService.transferMoney(
-                    initAccountNumber("Введите номер счета отправителя:"),
-                    initAccountNumber("Введите номер счета получателя:"),
-                    initBankName("Введите название банка отправителя:"),
-                    initBankName("Введите название банка получателя:"),
-                    initAmount("Введите сумму:"));
-            else if (num == 4) {
+            if (num == 1) {
+                try {
+                    accountService.replenish(
+                            initAccountNumber("Введите номер счета:"),
+                            initBankName("Введите название банка:"),
+                            initAmount("Введите сумму:"));
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                }
+            } else if (num == 2) {
+                try {
+                    accountService.withdraw(
+                            initAccountNumber("Введите номер счета:"),
+                            initBankName("Введите название банка:"),
+                            initAmount("Введите сумму:"));
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                }
+            } else if (num == 3) {
+                try {
+                    accountService.transferMoney(
+                            initAccountNumber("Введите номер счета отправителя:"),
+                            initAccountNumber("Введите номер счета получателя:"),
+                            initBankName("Введите название банка отправителя:"),
+                            initBankName("Введите название банка получателя:"),
+                            initAmount("Введите сумму:"));
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                }
+            } else if (num == 4) {
                 interestChecker.shutdown();
                 return;
-            } else System.out.println("Unknown command");
+            } else System.out.println("Неизвестная команда");
         }
     }
 
